@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>JuegoPhaser</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body 
+        {
+            padding: 0;
+            margin: 0;
+        }
+        canvas
+        {
+            display: block;
+            margin: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+
+        }
+    </style>
+</head>
+
+<body>
+    <script type='text/javascript'>
+    var personaje;
+            var plataformas;
+            var personaje;
+            var movimiento;
+            var hueso;
+            var puntos = 0;
+            var puntoscraneos = 0;
+            var textopuntos;
+            var textocraneos;
+            var bomba;
+            var craneo;
+            var GameOver = false;
+            var x;
+            var juego;
+
+        window.onload = function () 
+        {
+            var configuracion = {
+                type: Phaser.AUTO,
+                width: 800,
+                height: 600,
+                physics: {
+                    default: 'arcade',
+                    arcade: {
+                        gravity: { y: 420 },
+                        debug: false
+                    }
+                },
+                scene: {
+                    preload: preload,
+                    create: create,
+                    update: update
+                }
+            };
+            var juego = new Phaser.Game(configuracion);
+            window.focus();
+            resizeGame();
+            window.addEventListener('resize', resizeGame());
+        };
+
+        function resizeGame() 
+        {
+            let canvas = document.querySelector('canvas');
+            const { innerWidth, innerHeight } = window;
+            const ratio = innerWidth / innerHeight;
+            const gameRatio = juego.configuracion.width / juego.configuracion.height;
+
+            if (ratio < gameRatio) {
+                canvas.style.width = innerWidth + 'px';
+                canvas.style.height = innerWidth / gameRatio + 'px';
+            } else {
+                canvas.style.width = innerHeight * gameRatio + 'px';
+                canvas.style.height = innerHeight + 'px';
+            }
+        }
+
+        function preload ()
+        {
+            this.load.image('Fondo', 'assets/FondoLuna.png');
+            this.load.image('PlataformaSuelo', 'assets/PlataformaSuelo.png');
+            this.load.image('PlataformaCentral', 'assets/PlataformaCentral.png');
+            this.load.image('PlataformaDerecha', 'assets/PlataformaDerecha.png');
+            this.load.image('PlataformaIzquierda', 'assets/PlataformaIzquierda.png');
+            this.load.image('Logo', 'assets/logo.png');
+            this.load.image('Logo1', 'assets/logo2D.png');
+            this.load.image('Hueso', 'assets/Huesito.png');
+            this.load.image('Bomba', 'assets/bomb.png');
+            this.load.image('Craneo', 'assets/Craneo.png');
+            this.load.image('Caja', 'assets/Caja.png');
+            this.load.spritesheet('Personaje', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+
+        } 
+        
+        function create ()
+        {
+            //Fondo
+            this.add.image(400,300, 'Fondo');
+            //Plataformas
+            plataformas = this.physics.add.staticGroup();
+            plataformas.create(400,580, 'PlataformaSuelo');
+            plataformas.create(100,580, 'PlataformaSuelo');
+            plataformas.create(700,580, 'PlataformaSuelo');
+            plataformas.create(400,450, 'PlataformaCentral');
+            plataformas.create(400,250, 'PlataformaCentral');
+            plataformas.create(80,355, 'PlataformaIzquierda');
+            plataformas.create(740,355, 'PlataformaDerecha');
+            plataformas.create(740,150, 'PlataformaDerecha');
+            //Personaje
+            personaje = this.physics.add.sprite(20, 450, 'Personaje');
+            personaje.setBounce(0.2);
+            personaje.setCollideWorldBounds(true);
+            //Animacion
+
+            this.anims.create(
+            {
+                key: 'left',
+                frames: this.anims.generateFrameNumbers('Personaje', { start: 0, end: 3 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.anims.create(
+            {
+                key: 'turn',
+                frames: [ { key: 'Personaje', frame: 4 } ],
+                frameRate: 20
+            });
+            
+            this.anims.create(
+            {
+                key: 'right',
+                frames: this.anims.generateFrameNumbers('Personaje', { start: 5, end: 8 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            
+            movimiento = this.input.keyboard.createCursorKeys();                        
+            this.physics.add.collider(personaje, plataformas);
+            
+            //Huesitos
+            hueso = this.physics.add.group(
+            {
+                key: 'Hueso',
+                repeat: 10,
+                setXY: { x: 12, y: 0, stepX: 70 }
+            });
+            
+            hueso.children.iterate(function (child)
+            {              
+                child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+                child.x += Phaser.Math.FloatBetween(-15, 15)
+                if (Phaser.Math.FloatBetween(0, 1) > 0.5){
+                    child.puntos = 15;
+                    child.setTint(0xff0000);
+                }
+                else
+                {
+                    child.puntos = 10;
+                }        
+            });
+
+            this.physics.add.collider(hueso, plataformas);
+            this.physics.add.overlap(personaje, hueso, collectHueso, null, this);
+            
+            bomba = this.physics.add.group();
+            this.physics.add.collider(bomba, plataformas);
+            this.physics.add.collider(personaje, bomba, explocion, null, this);
+            //Puntaje
+            textopuntos = this.add.text(550, 565, 'Puntaje: 0', { fontSize: '29px', fill: '#F1C40F' ,fontFamily: 'verdana'});
+            textocraneos = this.add.text(20, 570, 'Craneos: 0', { fontSize: '25px',  fill: '#F1C40F', fontFamily: 'sans-serif', fontStyle: 'italic' });
+            //Craneos
+            craneo = this.physics.add.group (
+                {
+                    key: 'Craneo',
+                    repeat: 5,
+                    setXY: {x: 15, y: 0, stepX: 180 }
+                }
+            );
+            craneo.children.iterate(function (child) 
+            {
+                child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+            });
+            this.physics.add.collider(craneo, plataformas);
+            this.physics.add.overlap(personaje, craneo, collectCraneo, null, this);          
+        }
+        
+        function update ()
+        {
+            //Movimiento Personaje
+            if (movimiento.left.isDown)
+            {
+                personaje.setVelocityX(-160);
+                personaje.anims.play('left', true);
+            }
+            else if (movimiento.right.isDown)
+            {
+                personaje.setVelocityX(160);
+                personaje.anims.play('right', true);
+            }
+            else
+            {
+                personaje.setVelocityX(0);
+                personaje.anims.play('turn');
+            }   
+            if (movimiento.up.isDown && personaje.body.touching.down)
+            {
+                personaje.setVelocityY(-330);
+                personaje.saltos += 1
+            }
+            if (personaje.body.touching.down)
+            {
+                personaje.saltos = 0       
+            }
+        } 
+        
+        function collectHueso (personaje, Hueso)
+        {   
+            Hueso.disableBody(true, true);      
+            puntos += Hueso.puntos;        
+            textopuntos.setText('Puntaje: ' + puntos);
+
+            if (hueso.countActive(true) === 0)
+            { 
+                hueso.children.iterate(function (child)         
+                {           
+                    child.enableBody(true, child.x, 0, true, true); 
+                });
+
+                if (personaje.x < 400)
+                {    
+                    x.Phaser.Math.Between(400, 800);
+                }
+                else
+                {   
+                    x = Phaser.Math.Between(0, 400);
+                }
+
+                //Bombas
+                var bombas = bomba.create(x, 16, 'Bomba'); 
+                bombas.setBounce(1);
+                bombas.setCollideWorldBounds(true);
+                bombas.setVelocity(Phaser.Math.Between(-200, 200), 50);
+                bombas.allowGravity = false;
+            }    
+        }
+        function collectCraneo (personaje, Craneo) 
+        {
+            Craneo.disableBody(true, true);
+            puntoscraneos += 1;
+            textocraneos.setText('Craneos: ' + puntoscraneos);
+
+            if (craneo.countActive(true) === 0)
+            {
+                craneo.children.iterate(function (child)         
+                {           
+                    child.enableBody(true, child.x, 0, true, true); 
+                });
+            }       
+        }
+       
+        function explocion (personaje, bombas)
+        {
+            this.physics.pause();     
+            personaje.setTint(0xffFF00);    
+            personaje.anims.play('turn');  
+            GameOver = true;
+            puntos = 0;
+            puntoscraneos = 0;
+            var gameOverButton = this.add.text(250, 320, 'Reiniciar', { fontFamily: 'verdana', fontSize: 70, fill: '#F1C40F' })
+            .setInteractive()
+            .on('pointerdown', () => this.scene.start());          
+        }      
+</script>
+</body>
+</html>
